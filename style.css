@@ -1,0 +1,49 @@
+html,
+body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    flex-flow: column;
+}
+
+#io-div {
+    flex: 0;
+}
+
+#io-div>div {
+    position: relative;
+}
+
+#submit,
+#action {
+    position: absolute;
+    right: 20px;
+    bottom: 0;
+    opacity: 0.5;
+    font-family: monospace;
+}
+
+#prompt,
+#input,
+#output {
+    display: block;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    width: 100%;
+    resize: none;
+    font-family: monospace;
+}
+
+#output {
+    --correct-color: palegreen;
+    --incorrect-color: lightsalmon;
+}
+
+#canvas-div {
+    flex: 1;
+}
+
+#canvas {
+    display: block;
+}
