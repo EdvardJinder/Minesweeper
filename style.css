@@ -6,6 +6,14 @@ body {
     flex-flow: column;
 }
 
+#error {
+    color: white;
+    background-color: red;
+    position: absolute;
+    top: 0;
+    width: 100%;
+}
+
 #io-div {
     flex: 0;
 }

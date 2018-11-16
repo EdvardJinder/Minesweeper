@@ -1,5 +1,5 @@
 // BalderLib
-// version 2.3.2 (2018-10-19)
+// version 2.4 (2018-11-13)
 // Mattias Steinwall
 // Baldergymnasiet, Skellefteå, Sweden
 //
@@ -10,6 +10,7 @@ let _input = document.getElementById('input');
 let _submit = document.getElementById('submit');
 let _output = document.getElementById('output');
 let _action = document.getElementById('action');
+let _error = document.getElementById('error'); // 2.4
 if (!_prompt)
     _prompt = document.createElement('input');
 if (!_input)
@@ -20,6 +21,8 @@ if (!_output)
     _output = document.createElement('textarea');
 if (!_action)
     _action = document.createElement('button');
+if (!_error)
+    _error = document.createElement('output'); // 2.4
 _prompt.placeholder = "prompt";
 _prompt.readOnly = true;
 _input.placeholder = "input";
@@ -29,6 +32,11 @@ _output.placeholder = "output";
 _output.readOnly = true;
 _action.textContent = "clear";
 _action.title = "Alt+Enter";
+_error.title = "Ctrl+Shift+I"; // 2.4
+_error.style.zIndex = "1"; // 2.4
+window.onerror = (message) => {
+    _error.innerHTML = message;
+};
 let prompts; // Deprecated - use setPrompts()
 let _promptLines = [];
 let _promptLineindex = 0;
@@ -38,7 +46,7 @@ function _setPrompt() {
     _prompt.value = _promptLines[_promptLineindex];
     if (_promptLines[_promptLineindex] === undefined)
         _prompt.value = "";
-    const lastLine = _promptLines[_promptLines.length - 1]; // 3.2.2
+    const lastLine = _promptLines[_promptLines.length - 1];
     if (lastLine !== undefined) {
         const indexStart = _promptLines.length - 1 - lastLine.length;
         if (/^""*$/.test(lastLine) && _promptLineindex >= indexStart) {
@@ -71,11 +79,12 @@ _action.onclick = () => {
     clearOutput();
 };
 _output.onkeydown = (event) => {
-    if (event.altKey && (event.keyCode == 13 || event.keyCode == 10))
+    if (event.altKey && (event.keyCode === 13 || event.keyCode === 10))
         clearOutput();
 };
 let _inputLines = [];
 let _inputLineIndex = 0;
+let selectInputOnSubmit; //2.4
 let clearOutputOnSubmit = true;
 function _submitHandler() {
     if (clearOutputOnSubmit)
@@ -84,11 +93,11 @@ function _submitHandler() {
     _inputLineIndex = 0;
     if (typeof this['submit'] == 'function')
         this['submit']();
-    if (!submitOnInput)
+    if (selectInputOnSubmit !== false) // 2.4
         _input.select();
 }
 _input.onkeydown = (event) => {
-    if ((event.ctrlKey || event.metaKey) && (event.keyCode == 13 || event.keyCode == 10))
+    if ((event.ctrlKey || event.metaKey) && (event.keyCode === 13 || event.keyCode === 10))
         _submitHandler();
 };
 let submitOnInput = false;
@@ -102,8 +111,15 @@ _submit.onclick = () => {
 function input() {
     return _inputLines[_inputLineIndex++];
 }
-function output(value = "", newLine = true) {
-    _output.value += value;
+function output(value, newLine = true) {
+    if (arguments.length > 0) {
+        if (typeof value === 'object') {
+            _output.value += JSON.stringify(value);
+        }
+        else {
+            _output.value += value;
+        }
+    }
     if (newLine)
         _output.value += '\n';
 }
@@ -263,8 +279,11 @@ window.addEventListener('load', () => {
             }
         });
     }
-    if (submitOnInput)
+    if (submitOnInput) {
         _submit.style.visibility = "hidden";
+        if (selectInputOnSubmit !== true)
+            selectInputOnSubmit = false;
+    }
     _input.focus();
     _input.select();
     if (typeof this['update'] == 'function') {
@@ -540,6 +559,9 @@ canvas.addEventListener('mouseout', () => {
 canvas.addEventListener('contextmenu', (event) => {
     event.preventDefault();
 });
+//
+// Touchscreen
+//
 const touchscreen = {
     x: null,
     y: null,
@@ -614,20 +636,20 @@ const turtle = new Turtle();
 // Grid
 //
 class Cell {
-    constructor(row, col, x, y, width, height, fontSize, charWidth, charHeight) {
+    constructor(row, col, x, y, width, height, backColor, fontSize, charWidth, charHeight) {
         this.row = row;
         this.col = col;
         this.x = x;
         this.y = y;
         this.width = width;
         this.height = height;
+        this.backColor = backColor;
         this.fontSize = fontSize;
         this.charWidth = charWidth;
         this.charHeight = charHeight;
         this._imagePath = null;
         this._char = null;
         this.foreColor = "black";
-        this.backColor = "white";
         this.tag = null;
     }
     get imagePath() {
@@ -652,7 +674,7 @@ class Cell {
     }
     fill(color) {
         if (color)
-            this.backColor = color; // 2.3.1
+            this.backColor = color;
         if (this.backColor)
             context.fillStyle = this.backColor;
         context.fillRect(this.x, this.y, this.width, this.height);
@@ -661,7 +683,10 @@ class Cell {
     }
 }
 class Grid {
-    constructor(rows, cols, x = 0, y = 0, width = canvas.width, height = canvas.height, spacingX = 0, spacingY = 0, isPadded = false, cellWidth = null, cellHeight = null, cellAspectRatio = null) {
+    constructor(rows, cols, x = 0, y = 0, width = canvas.width, height = canvas.height, backColor = 'white', // 2.4
+    spacingX = 1, spacingY = 1, spacingColor = 'black', // 2.4
+    isPadded = true, // 2.4
+    cellWidth = null, cellHeight = null, cellAspectRatio = null) {
         this.rows = rows;
         this.cols = cols;
         this.x = x;
@@ -670,6 +695,7 @@ class Grid {
         this.height = height;
         this.spacingX = spacingX;
         this.spacingY = spacingY;
+        this.spacingColor = spacingColor;
         this.isPadded = isPadded;
         this.cellWidth = cellWidth;
         this.cellHeight = cellHeight;
@@ -732,7 +758,7 @@ class Grid {
         for (let i = 0; i < rows; i++) {
             this.cells[i] = [];
             for (let j = 0; j < cols; j++) {
-                this.cells[i][j] = new Cell(i, j, this.x + j * (this.cellWidth + spacingY) + (isPadded ? spacingX : 0), this.y + i * (this.cellHeight + spacingX) + (isPadded ? spacingY : 0), this.cellWidth, this.cellHeight, fontSize, charWidth, charHeight);
+                this.cells[i][j] = new Cell(i, j, this.x + j * (this.cellWidth + spacingY) + (isPadded ? spacingX : 0), this.y + i * (this.cellHeight + spacingX) + (isPadded ? spacingY : 0), this.cellWidth, this.cellHeight, backColor, fontSize, charWidth, charHeight);
             }
         }
     }
@@ -771,13 +797,31 @@ class Grid {
         this.selectable = true;
         return false;
     }
+    // Deprecated - use draw()
     fill(color) {
         rectangle(this.x, this.y, this.width, this.height, color);
     }
+    // Deprecated - use draw()
     fillCells(color) {
         for (let i = 0; i < this.rows; i++) {
             for (let j = 0; j < this.cols; j++) {
                 this.cell(i, j).fill(color);
+            }
+        }
+    }
+    draw() {
+        rectangle(this.x, this.y, this.width, this.height, this.spacingColor);
+        for (let i = 0; i < this.rows; i++) {
+            for (let j = 0; j < this.cols; j++) {
+                if (this.cell(i, j).imagePath) {
+                    this.cell(i, j).imagePath = this.cell(i, j).imagePath;
+                }
+                else if (this.cell(i, j).char) {
+                    this.cell(i, j).char = this.cell(i, j).char;
+                }
+                else {
+                    this.cell(i, j).fill(this.cell(i, j).backColor);
+                }
             }
         }
     }
@@ -788,8 +832,10 @@ class Grid {
 //
 // Helper functions
 //
-function randomInt(start, stop) {
-    return start + Math.floor(Math.random() * (stop - start + 1));
+function randomInt(m, n) {
+    if (n)
+        return m + Math.floor(Math.random() * (n - m + 1));
+    return Math.floor(Math.random() * m);
 }
 function randomChoice(...args) {
     return args[Math.floor(Math.random() * args.length)];
@@ -804,11 +850,43 @@ function getColor(x, y) {
     const data = context.getImageData(x, y, 1, 1).data;
     return { red: data[0], green: data[1], blue: data[2], alpha: data[3] };
 }
+function getPixel(x, y) {
+    const data = context.getImageData(x, y, 1, 1).data;
+    return { red: data[0], green: data[1], blue: data[2], alpha: data[3] };
+}
 function distance(x1, y1, x2, y2) {
     return Math.sqrt(Math.pow((x2 - x1), 2) + Math.pow((y2 - y1), 2));
 }
 function sleep(msTimeout) {
     return new Promise(resolve => setTimeout(resolve, msTimeout));
+}
+function createMatrix(rows, cols, value = null) {
+    return Array(rows).fill(null).map(() => Array(cols).fill(value));
+}
+function clone(arg) {
+    return JSON.parse(JSON.stringify(arg));
+}
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+function sortNumbers(array) {
+    return array.sort((a, b) => a - b);
+}
+function range(from, to, by = 1) {
+    let a = [];
+    if (by > 0) {
+        for (let i = from; i < to; i += by)
+            a.push(i);
+    }
+    else {
+        for (let i = from; i > to; i += by)
+            a.push(i);
+    }
+    return a;
 }
 class Hitbox {
     constructor(x, y, width, height) {
@@ -873,3 +951,4 @@ function setVolume(path, volume) {
         _sounds[path].volume = volume;
     }
 }
+//# sourceMappingURL=balderlib.js.map

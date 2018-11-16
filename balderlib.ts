@@ -1,5 +1,5 @@
 // BalderLib
-// version 2.3.2 (2018-10-19)
+// version 2.4 (2018-11-13)
 // Mattias Steinwall
 // Baldergymnasiet, Skellefteå, Sweden
 
@@ -13,12 +13,14 @@ let _input = document.getElementById('input') as HTMLTextAreaElement;
 let _submit = document.getElementById('submit') as HTMLButtonElement;
 let _output = document.getElementById('output') as HTMLTextAreaElement;
 let _action = document.getElementById('action') as HTMLButtonElement;
+let _error = document.getElementById('error') as HTMLOutputElement; // 2.4
 
 if (!_prompt) _prompt = document.createElement('input');
 if (!_input) _input = document.createElement('textarea');
 if (!_submit) _submit = document.createElement('button');
 if (!_output) _output = document.createElement('textarea');
 if (!_action) _action = document.createElement('button');
+if (!_error) _error = document.createElement('output'); // 2.4
 
 _prompt.placeholder = "prompt";
 _prompt.readOnly = true;
@@ -31,6 +33,13 @@ _output.placeholder = "output";
 _output.readOnly = true;
 _action.textContent = "clear";
 _action.title = "Alt+Enter";
+
+_error.title = "Ctrl+Shift+I";  // 2.4
+_error.style.zIndex = "1";      // 2.4
+
+window.onerror = (message) => { // 2.4
+    _error.innerHTML = message as string;
+}
 
 let prompts: string;    // Deprecated - use setPrompts()
 
@@ -45,7 +54,7 @@ function _setPrompt() {
     if (_promptLines[_promptLineindex] === undefined)
         _prompt.value = "";
 
-    const lastLine = _promptLines[_promptLines.length - 1];     // 3.2.2
+    const lastLine = _promptLines[_promptLines.length - 1];
     if (lastLine !== undefined) {
         const indexStart = _promptLines.length - 1 - lastLine.length;
 
@@ -86,13 +95,14 @@ _action.onclick = () => {
 };
 
 _output.onkeydown = (event) => {
-    if (event.altKey && (event.keyCode == 13 || event.keyCode == 10))
+    if (event.altKey && (event.keyCode === 13 || event.keyCode === 10))
         clearOutput();
 };
 
 let _inputLines: string[] = [];
 let _inputLineIndex = 0;
 
+let selectInputOnSubmit: boolean; //2.4
 let clearOutputOnSubmit = true;
 
 function _submitHandler() {
@@ -105,12 +115,12 @@ function _submitHandler() {
     if (typeof this['submit'] == 'function')
         this['submit']();
 
-    if (!submitOnInput)
+    if (selectInputOnSubmit !== false) // 2.4
         _input.select();
 }
 
 _input.onkeydown = (event) => {
-    if ((event.ctrlKey || event.metaKey) && (event.keyCode == 13 || event.keyCode == 10))
+    if ((event.ctrlKey || event.metaKey) && (event.keyCode === 13 || event.keyCode === 10))
         _submitHandler();
 };
 
@@ -129,8 +139,15 @@ function input(): string {
     return _inputLines[_inputLineIndex++];
 }
 
-function output(value: any = "", newLine = true) {
-    _output.value += value
+function output(value?: any, newLine = true) {  // 2.4 mod
+    if (arguments.length > 0) {
+        if (typeof value === 'object') {
+            _output.value += JSON.stringify(value);
+        }
+        else {
+            _output.value += value
+        }
+    }
 
     if (newLine)
         _output.value += '\n';
@@ -333,8 +350,13 @@ window.addEventListener('load', () => {
         });
     }
 
-    if (submitOnInput)
+    if (submitOnInput) {
         _submit.style.visibility = "hidden";
+
+        if (selectInputOnSubmit !== true)
+            selectInputOnSubmit = false;
+    }
+
 
     _input.focus();
     _input.select();
@@ -671,17 +693,15 @@ canvas.addEventListener('contextmenu', (event) => {
 // Touchscreen
 //
 
-interface _TouchInfo {
-    x: number;
-    y: number;
-    id: number;
-}
-
 const touchscreen: {
     x: number,
     y: number,
     touched: boolean,
-    touches: _TouchInfo[]
+    touches: {
+        x: number;
+        y: number;
+        id: number;
+    }[]
 } = {
     x: null,
     y: null,
@@ -779,7 +799,6 @@ class Cell {
     private _imagePath: string = null;
     private _char: string = null;
     public foreColor = "black";
-    public backColor = "white";
     public tag: any = null;
 
     constructor(
@@ -789,6 +808,7 @@ class Cell {
         public y: number,
         public width: number,
         public height: number,
+        public backColor: string,
         private fontSize: number,
         private charWidth: number,
         private charHeight: number
@@ -827,7 +847,7 @@ class Cell {
 
     public fill(color?: string) {
         if (color)
-            this.backColor = color;         // 2.3.1
+            this.backColor = color;
 
         if (this.backColor)
             context.fillStyle = this.backColor;
@@ -852,9 +872,11 @@ class Grid {
         public y = 0,
         public width = canvas.width,
         public height = canvas.height,
-        private spacingX = 0,
-        private spacingY = 0,
-        private isPadded = false,
+        backColor = 'white',    // 2.4
+        public spacingX = 1,
+        public spacingY = 1,
+        public spacingColor = 'black', // 2.4
+        public isPadded = true,    // 2.4
         private cellWidth: number = null,
         private cellHeight: number = null,
         cellAspectRatio: number = null
@@ -928,6 +950,7 @@ class Grid {
                     this.x + j * (this.cellWidth + spacingY) + (isPadded ? spacingX : 0),
                     this.y + i * (this.cellHeight + spacingX) + (isPadded ? spacingY : 0),
                     this.cellWidth, this.cellHeight,
+                    backColor,
                     fontSize,
                     charWidth, charHeight);
             }
@@ -977,14 +1000,33 @@ class Grid {
         return false;
     }
 
+    // Deprecated - use draw()
     public fill(color?: string) {
         rectangle(this.x, this.y, this.width, this.height, color);
     }
 
+    // Deprecated - use draw()
     public fillCells(color?: string) {
         for (let i = 0; i < this.rows; i++) {
             for (let j = 0; j < this.cols; j++) {
                 this.cell(i, j).fill(color);
+            }
+        }
+    }
+
+    public draw() {
+        rectangle(this.x, this.y, this.width, this.height, this.spacingColor);
+        for (let i = 0; i < this.rows; i++) {
+            for (let j = 0; j < this.cols; j++) {
+                if (this.cell(i, j).imagePath) {
+                    this.cell(i, j).imagePath = this.cell(i, j).imagePath;
+                }
+                else if (this.cell(i, j).char) {
+                    this.cell(i, j).char = this.cell(i, j).char;
+                }
+                else {
+                    this.cell(i, j).fill(this.cell(i, j).backColor);
+                }
             }
         }
     }
@@ -999,11 +1041,14 @@ class Grid {
 // Helper functions
 //
 
-function randomInt(start: number, stop: number) {
-    return start + Math.floor(Math.random() * (stop - start + 1));
+function randomInt(m: number, n?: number) { // 2.4
+    if (n)
+        return m + Math.floor(Math.random() * (n - m + 1));
+
+    return Math.floor(Math.random() * m);
 }
 
-function randomChoice(...args: any[]) {
+function randomChoice<T>(...args: T[]) { // 2.4 (generic type)
     return args[Math.floor(Math.random() * args.length)];
 }
 
@@ -1015,7 +1060,13 @@ function createColor(red: number, green: number, blue: number, alpha = 1) {
     return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-function getColor(x: number, y: number) {
+function getColor(x: number, y: number) {   // Deprecated - use getPixel()
+    const data = context.getImageData(x, y, 1, 1).data;
+
+    return { red: data[0], green: data[1], blue: data[2], alpha: data[3] };
+}
+
+function getPixel(x: number, y: number) {   // 2.4
     const data = context.getImageData(x, y, 1, 1).data;
 
     return { red: data[0], green: data[1], blue: data[2], alpha: data[3] };
@@ -1025,8 +1076,45 @@ function distance(x1: number, y1: number, x2: number, y2: number) {
     return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
 }
 
-function sleep(msTimeout) {
+function sleep(msTimeout: number) {
     return new Promise(resolve => setTimeout(resolve, msTimeout));
+}
+
+function createMatrix<T>(rows: number, cols: number, value: T = null): T[][] {  // 2.4
+    return Array(rows).fill(null).map(() => Array(cols).fill(value));
+}
+
+function clone<T>(arg: T): T {  // 2.4
+    return JSON.parse(JSON.stringify(arg));
+}
+
+function shuffle<T>(array: T[]) {    // 2.4
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+
+    return array;
+}
+
+function sortNumbers(array: number[]) { // 2.4
+    return array.sort((a, b) => a - b)
+}
+
+
+function range(from: number, to: number, by = 1) {  // 2.4
+    let a: number[] = [];
+
+    if (by > 0) {
+        for (let i = from; i < to; i += by)
+            a.push(i);
+    }
+    else {
+        for (let i = from; i > to; i += by)
+            a.push(i);
+    }
+
+    return a;
 }
 
 class Hitbox {
