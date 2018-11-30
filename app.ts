@@ -1,7 +1,7 @@
 
 
 let grey = createColor(202, 202, 202, 79);
-let diff = 24;
+let diff = 16;
 
 let g = new Grid(diff, diff, 450, 150, 500, 500, "grey", 2, 2);
 g.fill("grey");
@@ -13,7 +13,7 @@ for (let i = 0; i < diff; i++) {
     }
 }
 
-for (let i = 0; i < 99; i++) {
+for (let i = 0; i < 40; i++) {
     let r;
     let c;
     while (true) {
@@ -57,22 +57,21 @@ for (let r = 0; r < diff; r++) {
 
 
 
-function empty() {
-    let rold = g.selectedCell.row;
-    let cold = g.selectedCell.col;
-    // for (let i = 0; i < 8; i++) {
+function empty(rold, cold) {
+
+
     for (let r = (rold - 1); r <= (rold + 1); r++) {
         for (let c = (cold - 1); c <= (cold + 1); c++) {
-            if (g.cell(r, c).tag < 100) {
-                g.cell(r, c).imagePath = g.cell(r, c).tag + 'p.png'
-                if (g.cell(r, c).tag == 0) {
-
+            try {
+                if (g.cell(r, c).tag < 100) {
+                    g.cell(r, c).imagePath = g.cell(r, c).tag + 'p.png'
 
                 }
             }
+            catch (err) { }
         }
     }
-    // }
+
 }
 
 
@@ -88,7 +87,7 @@ function update() {
         if (g.selectedCell.tag < 100) {
             g.selectedCell.imagePath = g.selectedCell.tag + "p.png";
             if (g.selectedCell.tag == 0) {
-                return empty();
+                return empty(g.selectedCell.row, g.selectedCell.col);
             }
         } else {
             g.selectedCell.imagePath = "bomb.jpg";
