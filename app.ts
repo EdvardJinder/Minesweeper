@@ -13,7 +13,7 @@ for (let i = 0; i < diff; i++) {
     }
 }
 
-for (let i = 0; i < 40; i++) {
+for (let i = 0; i < 0; i++) {
     let r;
     let c;
     while (true) {
@@ -57,37 +57,45 @@ for (let r = 0; r < diff; r++) {
 
 
 
-function empty(rold, cold) {
+function empty(row, col) {
 
-
-    for (let r = (rold - 1); r <= (rold + 1); r++) {
-        for (let c = (cold - 1); c <= (cold + 1); c++) {
+    for (let r = (row - 1); r <= (row + 1); r++) {
+        for (let c = (col - 1); c <= (col + 1); c++) {
             try {
-                if (g.cell(r, c).tag < 100) {
+
+                // Om rutan inte innehåller en bomb och är utan bild
+                if (g.cell(r, c).tag < 100 && g.cell(r, c).imagePath == null) {
+
+                    // Sätt bild
                     g.cell(r, c).imagePath = g.cell(r, c).tag + 'p.png'
 
+                    // Om det var en tom ruta
+                    // så undersök rutorna runtom den (rekursivt anrop)
+                    if (g.cell(r, c).tag == 0)
+                        empty(r, c)
                 }
             }
-            catch (err) { }
+            catch (err) {
+
+            }
         }
     }
 
 }
 
-
-
-
-
-
-
-
-
 function update() {
     if (g.selected) {
         if (g.selectedCell.tag < 100) {
             g.selectedCell.imagePath = g.selectedCell.tag + "p.png";
+
+            // Om tom ruta
             if (g.selectedCell.tag == 0) {
-                return empty(g.selectedCell.row, g.selectedCell.col);
+
+                // Sätt bild
+                g.selectedCell.imagePath = '0p.png'
+
+                // Undersök rutorna runtom den
+                empty(g.selectedCell.row, g.selectedCell.col);
             }
         } else {
             g.selectedCell.imagePath = "bomb.jpg";
